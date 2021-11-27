@@ -1,0 +1,195 @@
+% !TeX TS-program =
+\documentclass{article}
+
+\setlength\parindent{0pt}
+
+\title{Proposal for Fungible and Non-Fungible Tokens\newline{}
+       on Garlicoin and other Bitcoin-based blockchains
+       \vspace{6ex}}
+
+\author{\textbf{Erik ``Nuc" van 't Wout}\\
+        {\small @nuc1e4r5n4k3}\\
+        {\small /u/nuc1e4r5n4k3}\\
+        {\small nuc1e4r5n4k3\#5815}}
+
+\date{\vspace{8ex}
+      @VERSION@\\\vspace{1ex}
+      @DATE@}
+
+\begin{document}
+\maketitle
+\vspace{4ex}
+
+\begin{center}
+\section*{Abstract}
+\end{center}
+
+Tokens are well known in the cryptocurrency world, but are often associated with complex, VM-based blockchains such as \emph{Ethereum}.
+
+While token layers have successfully been deployed in the past on Bitcoin-like blockchains as well, they were generally implemented as a separate layer, only using the blockchain for metadata storage. This approach has several disadvantages, one of which is the requirement of dedicated software to interact with the token layer.
+
+This paper explores the compatibility of blockchain-native tokens with \emph{UTXO}-based blockchains such as Garlicoin and other Bitcoin derivates and contains a proposal on how to implement such a system by soft-fork.
+
+\newpage
+\tableofcontents
+
+\newpage
+\section{Motivation}
+
+Since its inception, Garlicoin is always been considered a meme-cryptocurrency, without any special features or much real world use. The currency's subreddit\footnote{https://reddit.com/r/garlicoin/} even highlights this with the text:
+
+\begin{quote}
+\emph{This is the coin you never thought you needed, and you probably don't.}
+\end{quote}
+
+However, this fact has never discouraged people from attempting to build something on top of the blockchain: from tipping bots, to gambling websites, to entire marketplaces.
+
+This proposal should be viewed in a similar fashion. While it has limited economical benefit (the author does not find it likely that projects would move their tokens from \emph{Ethereum}, \emph{Binance Smart Chain} or \emph{Avalanche} to Garlicoin), the ability to launch your own (meme-) coin on top of Garlicoin or implement tokenization of auxiliary digital or real-world objects basically for free could potentially significantly boost community interaction and interest.
+
+\newpage
+\section{Tokenization - an introduction}
+This paper repeatedly mentions tokens and tokenization. However, this might be a new concept to some and others might not have a full grasp of it.
+
+In the context of a blockchain, a token is simply an object of which ownership can be tracked on the blockchain. This object can either be completely native to the blockchain, or represent and object (either digital or real-world) outside of the blockchain. An example of this first case would simply be the Garlicoin cryptocurrency itself: it solely exists within the blockchain. However, a form of Garlicoin also exists outside of its own blockchain: WGRLC, or \emph{Wrapped Garlicoin}. These are tokens on Ethereum and BSC that refer to something that isn't part of those blockchains itself: Garlicoin coins stored in a special address on the Garlicoin chain. In this case the WGRLC tokens represent the GRLC coins stored away, similar how a bankers cheque represent fiat currency stored by a bank.
+
+In this last case we are talking about \emph{tokenization}: the ability to represent foreign objects using a digital placeholder (or IOU) on a blockchain to more easily trade it, move it around, and/or track its ownership. Note that tokenization is not limited to foreign cryptocurrencies. You can tokenize almost anything you can think of: cinema tickets, reward points when shopping somewhere, real estate property ownership, you name it.
+
+As you can probably see tokens are pretty versatile, so let's group them into 3 categories to get a clearer view of their capabilities.
+
+\subsection{Currencies and currency-like tokens}
+
+This is probably the easiest type of token to understand as it is something we are very familiar with. These types of tokens are \emph{\textbf{fungible}}: If I have \$100,- and I need to pay for something costing \$7,50 I can split my existing \$100,- and keep the remaining \$92,50. Meanwhile, if I have 2 \$10,- bills and want to pay for something costing \$20,-, there is nothing preventing me from combining those 2 bills in a single transaction.
+
+Fungibility is this ability to combine and subdivide as much as you want. This is something that is so natural to us that we do not even think about it, but it is very specific to these types of tokens.
+
+\subsection{Countable tokens}
+
+These tokens are an odd middle of the road. They are fungible to some extend, but can't be subdivided into fractions. But even then, whether or not these can be combined depends on the type of object they represent and the way they are representing it.
+
+One example of these tokens would be a token you could exchange for a free coffee (part of some ad campaign). If you have multiple of them you would be able to combine them, then pay for a coffee with just one of them. However, paying for half a coffee does not make much sense.
+
+Another example is a ticket for an economy class seat on an air plane flight. Depending on how the tokenization is implemented you would be able to combine them (you booked 2 seats somewhere on the plane) or not (you have 2 tickets for 2 specific seats, you can't combine 2 specific seats into 1 object).
+
+\subsection{Non-fungible tokens}
+
+A last category of tokens consists of tokens of which there is just one. An example would be ownership of some real estate property. While there are obviously other properties, it makes no sense to have any kind of interaction between these types of tokens: while you might be able to combine and divide physical real estate properties, it makes little sense to combine and divide ownership of them.
+
+This last category has been getting a lot of attention (both positive and negative) as of late in the context of non-enforceable digital object ownership tracking.
+
+\newpage
+\section{Native tokens on a UTXO-based blockchain}
+
+Not every token is the same and not every blockchain is the same. Tokens are typically associated with ``smart" or \emph{Virtual Machine}-based blockchains such as \emph{Ethereum}. These type of blockchains are designed to give you a lot of tooling to do whatever you want in a decentralized manner. On the other side of the spectrum you have the Bitcoin-like blockchains such as Garlicoin that are not much more than a decentralized ledger, just keeping track of who owns what.
+
+On the smart blockchains it is the blockchain itself that supports the tokens. Every node on the network sees them and the miners (or validators) validate transactions involving tokens. In this case we talk about \emph{native} tokens.
+
+Bitcoin and its derivatives don't have any of these features. However, that doesn't mean they have never known token deployments. But it typically meant that tokens had to be implemented in an additional layer on top of the core blockchain itself, basically using the blockchain more than being part of it.
+
+In this chapter we will explore the technical reasons for why this is the case, the downsides of implementing tokens in their own layer and how we could use the inherent features of a Bitcoin-like blockchain to implement tokens.
+
+\subsection{How are tokens currently implemented}
+
+Two examples of token implementation on Bitcoin-like blockchains are the \emph{Omni layer}\footnote{https://www.omnilayer.org/} and the \emph{Simple Ledger Protocol}\footnote{https://simpleledger.cash/}. Both of these protocols make use of a special feature in Bitcoin and Bitcoin-derivatives called \texttt{OP\_RETURN}. \texttt{OP\_RETURN} allows you to attach a small amount of arbitrary data to normal Bitcoin transactions, effectively tagging them.
+
+The way these protocols go about implementing tokens is to effectively set up an entire new blockchain side by side by the blockchain they run on top of. Then, when you make a transaction on for example the Omni layer, it gets translated to a Bitcoin transaction and flagged appropriately using \texttt{OP\_RETURN}. When the Bitcoin blockchain finds a new block, Omni layer nodes will look at it and check all the transactions in the block for these Omni layer tags. When found the transaction will be translated back to an Omni transaction and validated.
+
+Although the paragraph above is slightly simplified, it gives a general idea of the hoops these protocols had to jump through to get tokens to work. It can also be used to understand why there are disadvantages to this approach:
+
+\begin{itemize}
+    \item \textbf{You need special software to interact with the token layer.} Although this is more or less true of every token implementation, the fact that you are interacting with information that needs to be translated and reconstructed in order to work with it means that you need dedicated blockchain explorers and other basic parts of the ecosystem.
+    \item \textbf{Miners can not validate token transactions.} Since the Bitcoin blockchain itself doesn't understand these transactions, the miners will just include them as regular transactions, without knowing if they are valid or not. This also means that you cannot use light wallets as you need to verify for yourself if a transaction is valid or not and need the blockchain history to do so.
+\end{itemize}
+
+While there are more specific disadvantages to this approach, they are in general caused by one or both of the above. So makes for example the requirement for dedicated software and inability to use light wallets it harder to deploy and get people to use brand new tokens.
+
+\subsection{Misconceptions about Bitcoin-like blockchains}
+
+The previous section explains the hoops these token protocols need to jump through. In order to understand why, we need to look at how Bitcoin-like blockchains work internally and with that 2 misconceptions about them.
+
+
+\paragraph{The UTXO model}\mbox{}\\
+The first misconception is about the idea of having a balance. This is something we know from the banking world, but it turns out this isn't actually applicable to these types of blockchains\footnote{This in contrary to for example Ethereum, which \emph{does} work based on account balances.}. While your wallet software will show you a nice number of coins you have, in reality things are a lot messier.
+
+The way that Bitcoin-like chains store the coins you have is more akin to how your wallet is filled with bank notes and coins. Every time you receive a payment, it will result in a new ``coin" in your wallet, with as value the total amount transferred to you in that transaction. In blockchain terminology this ``coin" is called an UTXO, or \emph{Unspent Transaction Output}.
+
+These ``coins" or UTXOs need to be spend in full when you make a transaction. You can add as few or as many as you want (and you are free to select them in any order), but the total amount transacted will always be the total value of one or more of these UTXOs. So what do you do if you want to make a payment to someone and don't have a UTXO of the right amount? Simple: Just send whatever is left over after making the payment back to yourself, resulting in a new UTXO (or ``coin") in your wallet.
+
+\paragraph{Addresses do not exist}\mbox{}\\
+But it goes even deeper. Not only do account balances not exist, the addresses these balances were supposed to belong to do not even exist. Addresses are just used to make it easier for humans to explore and interact with the blockchain.
+In reality the blockchain does not even really care who owns something. It only cares about 2 things:
+
+\begin{itemize}
+    \item The aforementioned UTXOs, or ``spendable coins".
+    \item The condition that has to be fulfilled for someone to spend them.
+\end{itemize}
+
+In theory anyone can spend any UTXO on the blockchain, the blockchain does not care. Obviously such a system would not be terribly useful, hence the second item above. When you create a transaction and therefore new UTXOs you add a condition to each UTXO describing under which conditions it can be included in a new transaction and thereby spend.
+
+In order to specify these conditions, Bitcoin-like blockchains use a special kind of script\footnote{https://en.bitcoin.it/wiki/Script}. This script allows you to specify exactly under which conditions the UTXO can be spend.
+
+The vast majority of UTXOs use a script that specifies only the owner of a specific private key is allowed to spend the UTXO, thereby allowing people to more or less anonymously identify themselves to the blockchain. Such a script would look something like this:
+
+\begin{quote}
+    \texttt{OP\_DUP OP\_HASH160 <hash of public key> OP\_EQUALVERIFY OP\_CHECKSIG}
+\end{quote}
+
+Now, dealing with these scripts is not exactly user friendly. Consider the case where you would ask someone to make a payment to you (because you are for example selling them something). Telling them \emph{``please create a new UTXO with the following script so only I will be able to spend it"}, is not a great experience. Instead, addresses were created. While addresses do not exist on the blockchain, all wallets understand them and can translate them into Bitcoin script. Yes, that address that you copied from or pasted into your wallet is an abstraction for these kind of scripts allowing you to just pass them from person to person and leaving all the complexity to the wallet software instead.
+
+Note that this also means that you cannot ``send" coins ``to" someone. Coins, or better, UTXOs, just \emph{are}. They exist on the blockchain waiting to be spend at some point. The fact that you happen to have the magic key to satisfy the condition that allows them to be included in a new transaction is to no concern to the blockchain itself.
+
+\paragraph{Conclusion}\mbox{}\\
+The only thing the blockchain actively keeps track of is a set of spendable ``coins" called UTXOs. Each UTXO has a certain value and a condition that specifies what is required to include it into a new transaction and thereby spend it, programmed in Bitcoin script.
+
+Wallets and blockchain explorers translate these scripts into addresses to make it easier to deal with them. This also allows them to aggregate all UTXOs with the exact same script into a single balance, greatly improving user experience.
+
+If we want to implement tokens as part of such a blockchain, it would need to be compatible with this model and utilize UTXOs as they exist today.
+
+\subsection{Segregated Witness}
+
+The final part of information required to understand the token implementation proposal is a technology called SegWit, or \emph{Segregated Witness}. SegWit was activated as soft-fork on Bitcoin in 2017 and is part of several Bitcoin-derivatives, including Garlicoin.
+
+SegWit is a very complex technology, but only one part of it is of significance for this paper: providing an alternative to Bitcoin script. Where historically UTXOs could only be spend when fulfilling a condition programmed in Bitcoin script, SegWit introduced the \emph{Witness Program} instead. Consider the following Bitcoin script:
+
+\begin{quote}
+    \texttt{OP\_DUP OP\_HASH160 <hash of public key> OP\_EQUALVERIFY OP\_CHECKSIG}
+\end{quote}
+
+This script template is used a lot, to the point that almost all transactions use it. SegWit introduced the following \emph{Witness Program} which does the exact same thing:
+
+\begin{quote}
+    \texttt{0 <hash of public key>}
+\end{quote}
+
+Yes, that is it... But not only is this a lot shorter, there are 3 important things to note here:
+
+\begin{itemize}
+    \item \textbf{The data on the blockchain no longer describes the condition.} Instead, it is the full nodes and miners that interpret some arbitrary data into a condition.
+    \item \textbf{There is no specific data layout.} The ``program" consists of raw data without any formatting and can therefore hold pretty much anything we want.
+    \item \textbf{It is easy to add new condition classes.} As long as the full nodes and miners agree on how to interpret this ``program", it is possible to add any kind of condition we want. In practise this means that a soft-fork can add new condition types here. The SegWit code even includes a check that yet-unknown condition types are accepted in blocks as long as miners accept them.
+\end{itemize}
+
+Therefore it seems that, for the purposes of incorporating tokens into the existing UTXO model, \emph{Witness Programs} are a good candidate to distinguish them and provide storage for any additional data we need to provide to make these UTXOs work. At the same time, since \emph{Segregated Witness} already has an upgrade path build in, we do not have to deal with backwards compatibility towards nodes running older versions of the blockchain software.
+
+\subsection{High-level Proposal Overview}
+
+This section will set out the basic concepts of this proposal, while leaving the technical details to the next chapter.
+In short, the proposal consists of:
+
+\begin{itemize}
+    \item Introducing a new address type for the use with tokens. Tokens would only be able to be send from and to this address type, therefore preventing existing wallets from incorrectly using token UTXOs. Otherwise these addresses would work the same as typical ``default" addresses: Use a private key to spend a UTXO.
+    \item This new address type would support any kind of token. So no different address type per token type.
+    \item The ability for anyone to create a new token at any time. Token creation happens by sending a special transaction to the network. The newly created token can afterwards be identified by its origin transaction ID. Providing a friendly name to a token is currently out of scope of this document, but could be implemented by tagging the creation transaction using \texttt{OP\_RETURN}.
+    \item The ability to specify at token creation: how many of it to create, whether future creation (``minting") is possible and whether the token supports fractional division. A non-fungible token can be created by creating just 1 token with no fractional division and making future minting impossible. This means that for NFTs you would effectively create a new token type for each token, but since creation of these are extremely cheap and IDs are plentiful this is not an issue.
+    \item The ability to mint additional tokens by including a special ``minting torch" UTXO in a transaction. This special output can then be forwarded (or returned to yourself) to allow further minting in the future. By not creating a (new) output of this type future minting can be prevented. This is also valid for the original token creation transaction.
+    \item Token transactions would use zero-value transaction outputs, similar to \texttt{OP\_RETURN} outputs today. However, where \texttt{OP\_RETURN} UTXOs can never be spend, the token outputs would be spendable, thereby spending to tokens of that UTXO.
+    \item Token-specific transaction metadata, such as the type of token and amount of tokens spent (attached to the UTXO), would be included in the transaction as part of the \emph{Witness Program}.
+    \item Full nodes (including miners) would validate the token transactions by looking at the \emph{Witness Program} and verifying that no more tokens are spent than owned, the token type is consistent, no tokens are created without the ``minting torch", etc.
+    \item All these consensus rules would be activated through the normal soft-forking mechanism.
+\end{itemize}
+
+\newpage
+\section{Technical Details}
+
+\emph{TODO}
+
+\end{document}
